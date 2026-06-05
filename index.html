@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Na_escuta</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div id="screen-onboarding" class="screen active">
+        <div class="tech-bg-overlay"></div>
+        
+        <div class="onboarding-content">
+            <div class="logo-container">
+                <div class="icon-headphones">🎧</div>
+                <h1>Na_escuta</h1>
+                <p class="subtitle">Um espaço seguro para as tuas conversas.</p>
+            </div>
+
+            <div class="form-group">
+                <label for="username">Como queres ser chamado?</label>
+                <input type="text" id="username" placeholder="Digita o teu nome ou codinome..." autocomplete="off">
+                
+                <div class="remember-container">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="keep-logged" checked>
+                        <span class="custom-checkbox"></span>
+                        Manter conectado neste dispositivo
+                    </label>
+                </div>
+
+                <button id="btn-enter" onclick="enterApp()">ENTRAR NA ESCUTA</button>
+                <button id="btn-about" class="btn-secondary-link" onclick="openAboutModal()">💡 Sobre o aplicativo</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="about-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h3>Sobre o Na_escuta</h3>
+            <p>Privacidade absoluta e efemeridade digital. Sem registos centrais ou logs permanentes.</p>
+            
+            <div class="modal-footer-note">
+                Criado e desenvolvido por Rodrigo Silveira
+            </div>
+            
+            <button onclick="closeAboutModal()" style="margin-top: 15px; width: 100%;">Entendido</button>
+        </div>
+    </div>
+
+    <div id="connect-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h3>🔗 Conectar a uma Sala</h3>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 15px;">Gera um código rápido ou cola o do teu amigo para entrar na sala automaticamente.</p>
+            
+            <div style="margin-bottom: 15px;">
+                <button onclick="generateAndJoinRoom()" style="background: var(--bg-primary); color: var(--accent); border: 1px solid var(--accent); padding: 10px; margin: 0; width: 100%;">🎲 Gerar Código e Entrar</button>
+            </div>
+
+            <div style="text-align: left; width: 100%;">
+                <label style="font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 5px;">Ou cola o código recebido:</label>
+                <input type="text" id="input-room-code" placeholder="Ex: NE-1234" style="padding: 12px; font-size: 0.9rem; text-transform: uppercase;">
+            </div>
+
+            <div style="display: flex; gap: 10px; margin-top: 15px; width: 100%;">
+                <button onclick="closeConnectModal()" style="background: var(--danger); color: white; margin: 0; padding: 12px; flex: 1;">Cancelar</button>
+                <button onclick="joinWithExistingCode()" style="margin: 0; padding: 12px; flex: 1;">Conectar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="screen-home" class="screen">
+        <header class="app-header">
+            <div class="user-info">
+                <span class="user-avatar" id="profile-avatar">👤</span>
+                <div>
+                    <h2 id="display-profile-name">Nome do Usuário</h2>
+                    <span class="status-tag online" id="display-profile-status">🎧 Na escuta</span>
+                </div>
+            </div>
+            <button class="icon-btn" onclick="toggleSettingsMenu()">⚙️</button>
+
+            <div id="settings-menu" class="dropdown-menu">
+                <div class="menu-info">🔒 Conexão Local Ativa</div>
+                <hr style="border-color: var(--bg-primary); margin: 2px 0;">
+                <div class="status-select-title">Alterar Status:</div>
+                <div onclick="changeUserStatus('Na escuta', 'online')">🎧 Na escuta</div>
+                <div onclick="changeUserStatus('Só de olho', 'away')">🟡 Só de olho</div>
+                <div onclick="changeUserStatus('Ocupado', 'busy')">🔴 Ocupado</div>
+                <hr style="border-color: var(--bg-primary); margin: 5px 0;">
+                <div onclick="logoutApp()" style="color: var(--danger); font-weight: bold;">🚪 Sair (Mudar Codinome)</div>
+            </div>
+        </header>
+
+        <div class="search-bar">
+            <input type="text" placeholder="🔍 Procurar conversa...">
+        </div>
+
+        <main class="chat-list" id="main-chat-list">
+            <div class="empty-chat-state" id="empty-state">
+                <span class="empty-icon">💬</span>
+                <p>Nenhuma conversa ativa por aqui.</p>
+                <p class="empty-subtext">Clica em "+ Conectar" para iniciar uma sessão de chat segura.</p>
+            </div>
+        </main>
+
+        <button class="fab-btn" onclick="openConnectModal()">➕ Conectar</button>
+    </div>
+
+    <div id="screen-chat" class="screen">
+        <div class="app-header">
+            <div class="user-info">
+                <button class="icon-btn" onclick="disconnectAndLeaveRoom()">⬅️</button>
+                <div class="user-text-details">
+                    <h2 id="chat-contact-name">Lucas G.</h2>
+                    <span class="status-tag online">🟢 Na escuta</span>
+                </div>
+            </div>
+            <div style="font-size: 0.85rem; color: var(--text-muted);" id="chat-room-id-tag">NE-0000</div>
+        </div>
+
+        <div class="chat-messages" id="chat-messages-container">
+            <div class="crypto-notice">
+                🔒 Esta conversa está configurada para se autodestruir a cada 24 horas.
+            </div>
+        </div>
+
+        <div class="chat-footer">
+            <div class="input-wrapper">
+                <input type="text" id="chat-input" placeholder="Digita uma mensagem secreta..." autocomplete="off">
+            </div>
+            <button class="audio-btn" id="btn-audio">🎙️</button>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
+
+
