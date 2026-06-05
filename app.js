@@ -12,6 +12,9 @@ networkBridge.onmessage = function(event) {
     if (packet.type === 'ROOM_JOINED' && currentActiveRoom === packet.roomCode && packet.senderName !== myName) {
         addNewContactToList(packet.senderName, packet.roomCode);
         
+        // Adiciona também na nova lista de usuários online da tela Home automaticamente
+        addUserToList(packet.senderName, "Na escuta");
+        
         // Devolve o sinal confirmando que tu também estás lá dentro
         networkBridge.postMessage({
             type: 'ROOM_SYNC',
@@ -22,6 +25,7 @@ networkBridge.onmessage = function(event) {
 
     if (packet.type === 'ROOM_SYNC' && currentActiveRoom === packet.roomCode && packet.senderName !== myName) {
         addNewContactToList(packet.senderName, packet.roomCode);
+        addUserToList(packet.senderName, "Na escuta");
     }
 
     // Mensagens em Tempo Real
@@ -59,6 +63,20 @@ window.onload = function() {
     if (savedName) {
         document.getElementById('display-profile-name').innerText = savedName;
         alternarTela('screen-home'); // Transição limpa para a Home
+    }
+
+    // Vincula o envio por clique na tecla Enter ao novo input de chat
+    const chatInput = document.getElementById('chat-input');
+    if (chatInput) {
+        chatInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                const text = chatInput.value.trim();
+                if (text !== "") {
+                    sendTextMessageAction(text);
+                    chatInput.value = ""; // Limpa a caixa
+                }
+            }
+        });
     }
 }
 
@@ -121,7 +139,7 @@ function navigateToRoom(roomCode, titleName) {
     // Limpa tela de mensagens anteriores
     document.getElementById('chat-messages-container').innerHTML = `
         <div class="crypto-notice">
-            🔒 Esta conversa está configurada para se autodestruir a cada <span id="current-timer-label">24 horas</span>.
+            🔒 Esta conversa está configurada para se autodestruir a cada 24 horas.
         </div>
     `;
 
@@ -165,7 +183,7 @@ function disconnectAndLeaveRoom() {
 
     // 4. Se a lista ficou vazia, reinsere o estado vazio padrão
     const listContainer = document.getElementById('main-chat-list');
-    if (listContainer.children.length === 0) {
+    if (listContainer && listContainer.children.length === 0) {
         listContainer.innerHTML = `
             <div class="empty-chat-state" id="empty-state">
                 <span class="empty-icon">💬</span>
@@ -210,7 +228,7 @@ function addNewContactToList(remoteName, roomCode) {
             <p class="chat-last-message" id="last-msg-${roomCode}">🟢 Sincronizado na sala ${roomCode}</p>
         </div>
     `;
-    listContainer.appendChild(chatItem);
+    if (listContainer) listContainer.appendChild(chatItem);
 }
 
 function sendTextMessageAction(text) {
@@ -270,8 +288,10 @@ function appendMessageBubble(text, direction, sender, time) {
     const bubble = document.createElement('div');
     bubble.className = `message ${direction}`;
     bubble.innerHTML = `<p>${text}</p><span class="message-time">${time}</span>`;
-    container.appendChild(bubble);
-    container.scrollTop = container.scrollHeight;
+    if (container) {
+        container.appendChild(bubble);
+        container.scrollTop = container.scrollHeight;
+    }
 }
 
 function appendSystemNotice(text) {
@@ -281,7 +301,7 @@ function appendSystemNotice(text) {
     notice.style.background = 'rgba(230, 57, 70, 0.15)';
     notice.style.color = 'var(--danger)';
     notice.innerText = text;
-    container.appendChild(notice);
+    if (container) container.appendChild(notice);
 }
 
 function openAboutModal() { document.getElementById('about-modal').classList.add('active'); }
@@ -294,3 +314,41 @@ function applyStatusInterface(t, c) {
     tag.innerText = t; tag.className = `status-tag ${c}`;
 }
 function logoutApp() { localStorage.clear(); location.reload(); }
+
+/* ==========================================================================
+   8. INTEGRAÇÃO DINÂMICA DA NOVA LISTA DE USUÁRIOS ONLINE
+   ========================================================================== */
+
+// Função para adicionar um novo usuário na tela home
+function addUserToList(name, status) {
+    const list = document.getElementById('user-list');
+    if (!list) return;
+
+    // Evita duplicar o mesmo usuário visualmente se ele já estiver na lista
+    const existingUsers = list.getElementsByClassName('user-name');
+    for (let user of existingUsers) {
+        if (user.innerText === name) return;
+    }
+
+    const userDiv = document.createElement('div');
+    userDiv.className = 'user-item';
+    userDiv.innerHTML = `
+        <span class="user-avatar">🟢</span>
+        <div>
+            <div class="user-name">${name}</div>
+            <div class="user-status">${status}</div>
+        </div>
+    `;
+    userDiv.onclick = () => openChatWith(name);
+    list.appendChild(userDiv);
+}
+
+// Função para mudar de tela e abrir conversa
+function openChatWith(userName) {
+    // Esconde a tela home e mostra a tela de chat usando seu alternador nativo
+    alternarTela('screen-chat');
+    
+    // Atualiza o nome do contato correspondente no topo do cabeçalho do chat
+    document.getElementById('chat-contact-name').innerText = userName;
+}
+    
