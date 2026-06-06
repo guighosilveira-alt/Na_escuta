@@ -21,13 +21,20 @@
 html, body {
     width: 100%;
     height: 100vh;
-    height: 100dvh; /* Altura estável para navegadores móveis */
+    height: 100dvh;
     background-color: var(--bg-primary);
     overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.protection-overlay {
+    -webkit-user-select: none;
+    user-select: none;
 }
 
 /* ==========================================================================
-   2. ESTRUTURA EXPANSIVA DAS TELAS (.screen)
+   2. TELA (.screen)
    ========================================================================== */
 .screen {
     display: none;
@@ -40,12 +47,10 @@ html, body {
     padding: 20px;
 }
 
-/* Ativação do estado flex sem esmagar as laterais */
 .screen.active {
     display: flex !important;
 }
 
-/* Responsividade inteligente: limita largura apenas em desktops/telas grandes */
 @media (min-width: 600px) {
     html, body {
         display: flex;
@@ -63,7 +68,7 @@ html, body {
 }
 
 /* ==========================================================================
-   3. DESIGN DA TELA DE ONBOARDING (RESTAURADO)
+   3. DESIGN DA TELA DE ONBOARDING
    ========================================================================== */
 #screen-onboarding {
     justify-content: center;
@@ -81,446 +86,144 @@ html, body {
     pointer-events: none;
 }
 
-.onboarding-content {
-    width: 100%;
-    max-width: 340px; /* Alinha o formulário centralizadamente */
-    text-align: center;
-    zIndex: 2;
-}
-
-.logo-container {
-    margin-bottom: 32px;
-}
-
-.icon-headphones {
-    font-size: 4.5rem;
-    filter: drop-shadow(0 0 20px rgba(82, 183, 136, 0.3));
-    margin-bottom: 10px;
-}
-
-.logo-container h1 {
-    font-size: 2.4rem;
-    font-weight: 800;
-    color: var(--text-main);
-    letter-spacing: -0.5px;
-}
-
-.logo-container .subtitle {
-    color: var(--text-muted);
-    font-size: 0.95rem;
-    margin-top: 6px;
-}
+.onboarding-content { width: 100%; max-width: 340px; text-align: center; z-index: 2; }
+.logo-container { margin-bottom: 32px; }
+.icon-headphones { font-size: 4.5rem; filter: drop-shadow(0 0 20px rgba(82, 183, 136, 0.3)); margin-bottom: 10px; }
+.logo-container h1 { font-size: 2.4rem; font-weight: 800; color: var(--text-main); letter-spacing: -0.5px; }
+.logo-container .subtitle { color: var(--text-muted); font-size: 0.95rem; margin-top: 6px; }
 
 .form-group {
-    text-align: left;
-    width: 100%;
-    background: rgba(23, 34, 55, 0.4);
-    padding: 24px;
-    border-radius: 20px;
-    border: 1px solid rgba(255, 255, 255, 0.04);
+    text-align: left; width: 100%; background: rgba(23, 34, 55, 0.4);
+    padding: 24px; border-radius: 20px; border: 1px solid rgba(255, 255, 255, 0.04);
     backdrop-filter: blur(10px);
 }
-
-.form-group label {
-    display: block;
-    font-size: 0.85rem;
-    font-weight: 500;
-    color: var(--text-muted);
-    margin-bottom: 8px;
-}
-
+.form-group label { display: block; font-size: 0.85rem; font-weight: 500; color: var(--text-muted); margin-bottom: 8px; }
 .form-group input[type="text"] {
-    width: 100%;
-    padding: 14px 16px;
-    background: var(--bg-primary);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 10px;
-    color: var(--text-main);
-    margin-bottom: 16px;
-    font-size: 0.95rem;
-    transition: border-color 0.2s;
+    width: 100%; padding: 14px 16px; background: var(--bg-primary);
+    border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; color: var(--text-main); margin-bottom: 16px; font-size: 0.95rem;
 }
 
-.form-group input[type="text"]:focus {
-    outline: none;
-    border-color: var(--accent);
-}
-
-/* Botões do Onboarding */
-#btn-enter {
-    width: 100%;
-    background: var(--accent);
-    color: #0b111e;
-    border: none;
-    padding: 14px;
-    font-size: 0.95rem;
-    font-weight: 700;
-    border-radius: 10px;
-    cursor: pointer;
-    letter-spacing: 0.5px;
-    transition: opacity 0.2s;
-}
-
-#btn-enter:active {
-    opacity: 0.85;
-}
-
-.btn-secondary-link {
-    width: 100%;
-    background: transparent;
-    border: none;
-    color: var(--text-muted);
-    font-size: 0.85rem;
-    margin-top: 14px;
-    cursor: pointer;
-}
-
-/* Caixa do manter conectado */
-.remember-container {
-    margin-bottom: 20px;
-}
-
-.checkbox-label {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 0.85rem;
-    color: var(--text-muted);
-    cursor: pointer;
-    user-select: none;
-}
+#btn-enter { width: 100%; background: var(--accent); color: #0b111e; border: none; padding: 14px; font-size: 0.95rem; font-weight: 700; border-radius: 10px; cursor: pointer; }
+.btn-secondary-link { width: 100%; background: transparent; border: none; color: var(--text-muted); font-size: 0.85rem; margin-top: 14px; cursor: pointer; }
+.checkbox-label { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; color: var(--text-muted); cursor: pointer; }
 
 /* ==========================================================================
    4. CABEÇALHOS (APP-HEADER)
    ========================================================================== */
 .app-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding-top: env(safe-area-inset-top, 10px);
-    padding-bottom: 12px;
-    width: 100%;
-    flex-shrink: 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    display: flex; align-items: center; justify-content: space-between;
+    padding-top: env(safe-area-inset-top, 10px); padding-bottom: 12px;
+    width: 100%; flex-shrink: 0; border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 }
-
-.user-info {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
+.user-info { display: flex; align-items: center; gap: 12px; }
 #profile-avatar {
-    font-size: 1.5rem;
-    width: 38px;
-    height: 38px;
-    background: var(--bg-secondary);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    font-size: 1.5rem; width: 38px; height: 38px; background: var(--bg-secondary);
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
 }
+.user-info h2 { font-size: 1.1rem; font-weight: 600; color: var(--text-main); }
 
-.user-info h2 {
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: var(--text-main);
-}
-
-.status-tag {
-    font-size: 0.75rem;
-    padding: 2px 8px;
-    border-radius: 20px;
-    font-weight: 500;
-}
-
+.status-tag { font-size: 0.72rem; padding: 2px 8px; border-radius: 20px; font-weight: 500; text-align: center; }
 .status-tag.online { background: rgba(82, 183, 136, 0.15); color: var(--accent); }
 .status-tag.away { background: rgba(255, 183, 3, 0.15); color: #ffb703; }
 .status-tag.busy { background: rgba(230, 57, 70, 0.15); color: var(--danger); }
 
-.icon-btn {
-    background: transparent;
-    border: none;
-    font-size: 1.3rem;
-    cursor: pointer;
-    color: var(--text-main);
-    padding: 6px;
+.icon-btn { background: transparent; border: none; font-size: 1.3rem; cursor: pointer; color: var(--text-main); padding: 6px; }
+
+.btn-end-stream {
+    background: transparent; border: 1px solid var(--danger);
+    color: var(--danger); font-size: 0.75rem; font-weight: bold;
+    padding: 6px 12px; border-radius: 8px; cursor: pointer;
 }
+.btn-end-stream:active { background: rgba(230, 57, 70, 0.12); }
 
 /* ==========================================================================
    5. BARRA DE PESQUISA (SEARCH BAR)
    ========================================================================== */
-.search-bar {
-    width: 100%;
-    margin: 14px 0;
-    flex-shrink: 0;
-}
-
+.search-bar { width: 100%; margin: 14px 0; flex-shrink: 0; }
 .search-bar input {
-    width: 100%;
-    padding: 12px 16px;
-    border-radius: 10px;
-    border: none;
-    background: var(--bg-secondary);
-    color: var(--text-main);
-    font-size: 0.95rem;
-}
-
-.search-bar input::placeholder {
-    color: var(--text-muted);
+    width: 100%; padding: 12px 16px; border-radius: 10px;
+    border: none; background: var(--bg-secondary); color: var(--text-main); font-size: 0.95rem;
 }
 
 /* ==========================================================================
-   6. LISTA DINÂMICA DE USUÁRIOS ONLINE
+   6. LISTA DE DISPONIBILIDADE GLOBAL E CHECKBOXES
    ========================================================================== */
-.user-list {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    margin-bottom: 12px;
-    width: 100%;
-    flex-shrink: 0;
-}
-
+.user-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 6px; width: 100%; flex-shrink: 0; max-height: 200px; overflow-y: auto; }
 .user-item {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    background: var(--bg-secondary);
-    padding: 12px 16px;
-    border-radius: 12px;
-    cursor: pointer;
-    transition: background 0.2s, transform 0.1s;
-    -webkit-tap-highlight-color: transparent;
+    display: flex; align-items: center; background: var(--bg-secondary);
+    padding: 10px 14px; border-radius: 12px; cursor: pointer;
 }
-
-.user-item:active {
-    transform: scale(0.99);
-    background: rgba(82, 183, 136, 0.08);
-}
-
+.user-select-checkbox { width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; }
 .user-item .user-avatar {
-    font-size: 1.1rem;
-    width: 36px;
-    height: 36px;
-    background: rgba(82, 183, 136, 0.1);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
+    font-size: 1.1rem; width: 34px; height: 34px; background: rgba(82, 183, 136, 0.1);
+    border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
 }
+.user-name { font-size: 0.9rem; font-weight: 600; color: var(--text-main); }
+.user-status { font-size: 0.75rem; color: var(--text-muted); }
 
-.user-item > div {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    min-width: 0;
-}
-
-.user-name {
-    font-size: 0.95rem;
-    font-weight: 600;
-    color: var(--text-main);
-}
-
-.user-status {
-    font-size: 0.75rem;
-    color: var(--text-muted);
+.btn-action-chat {
+    background: var(--accent); color: #0b111e; border: none; 
+    font-size: 0.75rem; font-weight: bold; padding: 4px 12px; 
+    border-radius: 6px; cursor: pointer;
 }
 
 /* ==========================================================================
-   7. ÁREA DE MENSAGENS E CHATS ATIVOS
+   7. CHAT-LIST E BALÕES DE MENSAGEM
    ========================================================================== */
-.chat-list {
-    flex: 1;
-    overflow-y: auto;
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
+.chat-list { flex: 1; overflow-y: auto; width: 100%; display: flex; flex-direction: column; gap: 10px; }
+.empty-chat-state { margin: auto; text-align: center; padding: 20px; }
+.empty-icon { font-size: 3rem; margin-bottom: 12px; opacity: 0.5; display: block; }
+.empty-chat-state p { color: var(--text-main); font-size: 1rem; }
+.empty-subtext { color: var(--text-muted); font-size: 0.85rem; margin-top: 4px; }
 
-.empty-chat-state {
-    margin: auto;
-    text-align: center;
-    padding: 20px;
-}
+.chat-messages { flex: 1; overflow-y: auto; padding: 10px 0; display: flex; flex-direction: column; gap: 12px; }
+.crypto-notice { background: var(--accent-dim); color: var(--accent); padding: 10px; border-radius: 8px; font-size: 0.8rem; text-align: center; margin-bottom: 10px; }
 
-.empty-icon {
-    font-size: 3rem;
-    margin-bottom: 12px;
-    opacity: 0.5;
-    display: block;
-}
+.message { max-width: 75%; padding: 10px 14px; border-radius: 16px; font-size: 0.95rem; line-height: 1.4; display: flex; flex-direction: column; position: relative; animation: surgimento 0.25s ease-out; }
+.message.sent { background: var(--accent); color: #0b111e; align-self: flex-end; border-bottom-right-radius: 4px; }
+.message.received { background: var(--bg-secondary); color: var(--text-main); align-self: flex-start; border-bottom-left-radius: 4px; }
 
-.empty-chat-state p {
-    color: var(--text-main);
-    font-size: 1rem;
-    margin-bottom: 4px;
-}
+.msg-meta { font-size: 0.75rem; color: var(--accent); font-weight: bold; margin-bottom: 4px; }
+.message-time { font-size: 0.65rem; align-self: flex-end; margin-top: 4px; opacity: 0.8; display: flex; align-items: center; gap: 3px; }
 
-.empty-chat-state .empty-subtext {
-    color: var(--text-muted);
-    font-size: 0.85rem;
-}
+.chat-item { display: flex; align-items: center; gap: 12px; background: var(--bg-secondary); padding: 12px; border-radius: 12px; }
+.chat-item .avatar { width: 38px; height: 38px; background: var(--bg-primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+.chat-info { flex: 1; cursor: pointer; min-width: 0; }
+.chat-header { display: flex; justify-content: space-between; align-items: center; }
+.chat-header h3 { font-size: 0.9rem; color: var(--text-main); }
+.chat-time { font-size: 0.72rem; color: var(--text-muted); }
+.chat-last-message { font-size: 0.8rem; color: var(--accent); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-.chat-messages {
-    flex: 1;
-    overflow-y: auto;
-    padding: 10px 0;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.crypto-notice {
-    background: var(--accent-dim);
-    color: var(--accent);
-    padding: 10px;
-    border-radius: 8px;
-    font-size: 0.8rem;
-    text-align: center;
-    margin-bottom: 10px;
-}
-
-.message {
-    max-width: 75%;
-    padding: 12px 16px;
-    border-radius: 16px;
-    font-size: 0.95rem;
-    line-height: 1.4;
-    display: flex;
-    flex-direction: column;
-}
-
-.message.sent {
-    background: var(--accent);
-    color: #0b111e;
-    align-self: flex-end;
-    border-bottom-right-radius: 4px;
-}
-
-.message.received {
-    background: var(--bg-secondary);
-    color: var(--text-main);
-    align-self: flex-start;
-    border-bottom-left-radius: 4px;
-}
-
-.message-time {
-    font-size: 0.7rem;
-    align-self: flex-end;
-    margin-top: 4px;
-    opacity: 0.7;
+.small-btn-end {
+    background: rgba(230, 57, 70, 0.1); color: var(--danger); border: 1px solid rgba(230, 57, 70, 0.25);
+    padding: 6px 10px; border-radius: 6px; font-size: 0.72rem; font-weight: bold; cursor: pointer;
 }
 
 /* ==========================================================================
-   8. INPUTS E FOOTER DO CHAT
+   8. FOOTER E ENTRADAS DO CHAT
    ========================================================================== */
-.chat-footer {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding-top: 10px;
-    padding-bottom: env(safe-area-inset-bottom, 10px);
-    background: var(--bg-primary);
-    flex-shrink: 0;
-}
-
-.input-wrapper {
-    flex: 1;
-}
-
-.chat-footer input {
-    width: 100%;
-    padding: 14px 18px;
-    background: var(--bg-secondary);
-    border: none;
-    border-radius: 24px;
-    color: var(--text-main);
-    font-size: 0.95rem;
-}
-
-.audio-btn {
-    width: 48px;
-    height: 48px;
-    background: var(--bg-secondary);
-    border: none;
-    border-radius: 50%;
-    font-size: 1.2rem;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.audio-btn.recording {
-    background: var(--danger);
-    animation: pulse 1.2s infinite;
-}
+.chat-footer { display: flex; align-items: center; gap: 10px; padding-top: 10px; padding-bottom: env(safe-area-inset-bottom, 10px); background: var(--bg-primary); flex-shrink: 0; }
+.input-wrapper { flex: 1; }
+.chat-footer input { width: 100%; padding: 14px 18px; background: var(--bg-secondary); border: none; border-radius: 24px; color: var(--text-main); font-size: 0.95rem; }
+.audio-btn { width: 48px; height: 48px; background: var(--bg-secondary); border: none; border-radius: 50%; font-size: 1.2rem; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--text-main); }
 
 /* ==========================================================================
-   9. BOTÃO FLUTUANTE (FAB) E MODAIS
+   9. DROPDOWNS E MODAIS
    ========================================================================== */
-.fab-btn {
-    position: absolute;
-    bottom: 24px;
-    right: 24px;
-    background: var(--accent);
-    color: #0b111e;
-    border: none;
-    padding: 14px 22px;
-    border-radius: 30px;
-    font-weight: 700;
-    font-size: 0.95rem;
-    box-shadow: 0 4px 16px rgba(82, 183, 136, 0.3);
-    cursor: pointer;
-    z-index: 5;
-}
-
-.dropdown-menu {
-    display: none;
-    position: absolute;
-    top: 65px;
-    right: 16px;
-    background: var(--bg-secondary);
-    border-radius: 10px;
-    padding: 8px 0;
-    width: 200px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-    z-index: 10;
-}
+.dropdown-menu { display: none; position: absolute; top: 65px; right: 16px; background: var(--bg-secondary); border-radius: 10px; padding: 8px 0; width: 200px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); z-index: 10; }
 .dropdown-menu.show { display: block; }
 .dropdown-menu div { padding: 10px 16px; font-size: 0.85rem; color: var(--text-main); cursor: pointer; }
 .dropdown-menu div:hover { background: rgba(255,255,255,0.05); }
 .dropdown-menu .menu-info { color: var(--text-muted); cursor: default; }
 .dropdown-menu .status-select-title { font-weight: bold; color: var(--accent); cursor: default; }
 
-.modal-overlay {
-    display: none;
-    position: absolute;
-    top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(0,0,0,0.75);
-    justify-content: center;
-    align-items: center;
-    padding: 20px;
-    z-index: 100;
-}
+.modal-overlay { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.75); justify-content: center; align-items: center; padding: 20px; z-index: 100; }
 .modal-overlay.active { display: flex; }
+.modal-content { background: var(--bg-secondary); padding: 24px; border-radius: 20px; width: 100%; max-width: 360px; color: var(--text-main); }
+.modal-footer-note { font-size: 0.7rem; color: var(--text-muted); text-align: center; margin-top: 15px; }
 
-.modal-content {
-    background: var(--bg-secondary);
-    padding: 24px;
-    border-radius: 20px;
-    width: 100%;
-    max-width: 360px;
-    color: var(--text-main);
-}
-
-@keyframes pulse {
-    0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(230, 57, 70, 0.4); }
-    70% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(230, 57, 70, 0); }
-    100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(230, 57, 70, 0); }
+@keyframes surgimento {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
    }
-   
+                     
