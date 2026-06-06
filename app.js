@@ -1,4 +1,4 @@
-// CONFIGURAÇÕES REAIS DO SEU FIREBASE
+// CONFIGURAÇÕES REAIS DO FIREBASE
 const firebaseConfig = {
     apiKey: "AIzaSyAiCNzPp0XfrJtBoax-1B6O9yljYHN2NHI",
     authDomain: "plataformatemporeal.firebaseapp.com",
@@ -15,14 +15,20 @@ const database = firebase.database();
 
 // Estado Global de Sessão
 let currentChatId = null;
-let selectedUsers = []; // Armazena temporariamente marcados para chat
+let selectedUsers = []; 
 
 let globalPresenceRef = null;
 let activeMessagesQuery = null;
 
+// Controle de Gravação de Áudio Móvel/Web
+let mediaRecorder;
+let audioChunks = [];
+let isRecording = false;
+
 const zonaMensagens = document.getElementById('zona-mensagens');
 const textoMensagemInput = document.getElementById('texto-mensagem');
 const btnEnviar = document.getElementById('btn-enviar');
+const btnAudio = document.getElementById('btn-audio');
 
 window.onload = function() {
     const savedName = localStorage.getItem('na_escuta_username');
@@ -35,6 +41,17 @@ window.onload = function() {
     if (textoMensagemInput) {
         textoMensagemInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') { enviarMensagem(); }
+        });
+        
+        // Alternância visual fluida entre o ícone de enviar e o microfone
+        textoMensagemInput.addEventListener('input', () => {
+            if (textoMensagemInput.value.trim() !== "") {
+                btnEnviar.style.display = "flex";
+                btnAudio.style.display = "none";
+            } else {
+                btnEnviar.style.display = "none";
+                btnAudio.style.display = "flex";
+            }
         });
     }
     if (btnEnviar) {
@@ -66,22 +83,20 @@ function enterApp() {
 }
 
 /* ==========================================================================
-   SISTEMA DE DISPONIBILIDADE E PRESENÇA DIRETA (SEM CONCEITO DE SALA)
+   SISTEMA DE DISPONIBILIDADE E PRESENÇA DIRETA (REATIVIDADE EM TEMPO REAL)
    ========================================================================== */
 function initUserPresenceAndLoadNetwork(username) {
-    // Referência única do usuário logado na raiz global de usuários ativos
     globalPresenceRef = database.ref(`status_usuarios/${username}`);
     
-    // Define status inicial padrão e configura remoção automática ao desconectar
+    // Insere o registro e agenda a destruição atômica para quando o app fechar
     globalPresenceRef.set({ label: "Na escuta", css: "online" });
     globalPresenceRef.onDisconnect().remove();
 
-    // Começa a escutar TODOS os usuários disponíveis no sistema de forma reativa
+    // Monitora instantaneamente qualquer alteração de entradas/saídas
     database.ref('status_usuarios').on('value', (snapshot) => {
         renderGlobalUsers(snapshot.val() || {}, username);
     });
 
-    // Inicializa a escuta para carregar as conversas direcionadas a mim
     listenToMyConversations(username);
 }
 
@@ -94,13 +109,12 @@ function changeUserStatus(label, cssClass) {
     toggleSettingsMenu();
 }
 
-// Renderiza a listagem de todos os usuários que estão com o app aberto na nuvem
 function renderGlobalUsers(usersObj, myName) {
     const listContainer = document.getElementById('user-list');
     listContainer.innerHTML = '';
 
     Object.keys(usersObj).forEach((userKey) => {
-        if (userKey === myName) return; // Omitir a si próprio da lista de seleção
+        if (userKey === myName) return; 
 
         const statusData = usersObj[userKey];
         const isChecked = selectedUsers.includes(userKey) ? 'checked' : '';
@@ -112,9 +126,9 @@ function renderGlobalUsers(usersObj, myName) {
         item.innerHTML = `
             <input type="checkbox" class="user-select-checkbox" data-user="${userKey}" ${isChecked} onclick="event.stopPropagation(); toggleUserSelection('${userKey}')">
             <div class="user-avatar" style="margin-left: 8px;">👤</div>
-            <div style="flex:1; margin-left: 4px;">
+            <div style="flex:1; margin-left: 10px;">
                 <div class="user-name">${userKey}</div>
-                <div class="user-status">${statusData.label}</div>
+                <div class="user-status">● ${statusData.label}</div>
             </div>
             <span class="status-tag ${statusData.css}">${statusData.label}</span>
         `;
@@ -161,12 +175,9 @@ function startChatWithSelected() {
     }
     
     const myName = document.getElementById('display-profile-name').innerText;
-    
-    // Concatena os nomes ordenados para gerar uma chave única previsível para este conjunto
     const todosParticipantes = [myName, ...selectedUsers].sort();
     const hashChatId = "SESSAO_" + todosParticipantes.join("_");
 
-    // Registra a conversa no nó indexado de cada usuário participante
     todosParticipantes.forEach((membro) => {
         const parceiros = todosParticipantes.filter(n => n !== membro).join(", ");
         database.ref(`conversas_ativas/${membro}/${hashChatId}`).set({
@@ -212,10 +223,12 @@ function listenToMyConversations(myName) {
             `;
             listContainer.appendChild(chatItem);
 
-            // Escuta a última mensagem postada no canal
             database.ref(`mensagens_canais/${idDoChat}`).limitToLast(1).on('child_added', (msgSnap) => {
                 const txtEl = document.getElementById(`last-txt-${idDoChat}`);
-                if (txtEl) txtEl.innerText = `${msgSnap.val().autor}: ${msgSnap.val().texto}`;
+                if (txtEl) {
+                    const m = msgSnap.val();
+                    txtEl.innerText = m.tipo === 'texto' ? `${m.autor}: ${m.texto}` : `${m.autor}: [Envio de Mídia]`;
+                }
             });
         });
     });
@@ -231,7 +244,6 @@ function loadChatInterface(chatId, titleText) {
     alternarTela('screen-chat');
 
     if (activeMessagesQuery) activeMessagesQuery.off();
-
     activeMessagesQuery = database.ref(`mensagens_canais/${chatId}`);
     
     activeMessagesQuery.on('child_added', (snapshot) => {
@@ -240,7 +252,6 @@ function loadChatInterface(chatId, titleText) {
         const myName = document.getElementById('display-profile-name').innerText;
         const direction = (msg.autor === myName) ? 'sent' : 'received';
 
-        // Confirmação de leitura instantânea ao receber no dispositivo
         if (direction === 'received' && (!msg.vistoPor || !msg.vistoPor[myName])) {
             database.ref(`mensagens_canais/${chatId}/${msgId}/vistoPor/${myName}`).set(true);
         }
@@ -248,7 +259,6 @@ function loadChatInterface(chatId, titleText) {
         renderMessageBubble(msgId, msg, direction, myName);
     });
 
-    // Observa alterações para atualização dinâmica dos ticks (✔️ -> ✔️✔️)
     activeMessagesQuery.on('child_changed', (snapshot) => {
         const msgId = snapshot.key;
         const msg = snapshot.val();
@@ -267,7 +277,7 @@ function exitChatView() {
 }
 
 /* ==========================================================================
-   INTERAÇÃO DE MENSAGENS E GESTÃO DE MARCAÇÃO DE ENTREGA/VISTO
+   MENSAGENS TEXTO, CAPTURA DE FOTO E GRAVAÇÃO DE ÁUDIO INLINE
    ========================================================================== */
 function enviarMensagem() {
     if (!currentChatId) return;
@@ -285,11 +295,85 @@ function enviarMensagem() {
         novaMsgRef.set({
             autor: myName,
             texto: texto,
+            tipo: 'texto',
             hora: horaFormatada,
             vistoPor: vistoPorInicial
         });
 
         textoMensagemInput.value = "";
+        btnEnviar.style.display = "none";
+        btnAudio.style.display = "flex";
+    }
+}
+
+function triggerPhotoUpload() {
+    document.getElementById('hidden-file-input').click();
+}
+
+function enviarFoto(input) {
+    if (!currentChatId || !input.files || !input.files[0]) return;
+    const file = input.files[0];
+    const reader = new FileReader();
+
+    reader.onload = function(e) {
+        const base64Image = e.target.result;
+        const myName = document.getElementById('display-profile-name').innerText;
+        const hora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+        const vistoPorInicial = {};
+        vistoPorInicial[myName] = true;
+
+        database.ref(`mensagens_canais/${currentChatId}`).push({
+            autor: myName,
+            tipo: 'foto',
+            midia: base64Image,
+            hora: hora,
+            vistoPor: vistoPorInicial
+        });
+    };
+    reader.readAsDataURL(file);
+}
+
+function toggleAudioRecording() {
+    if (!isRecording) {
+        navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+            mediaRecorder = new MediaRecorder(stream);
+            audioChunks = [];
+            
+            mediaRecorder.ondataavailable = event => audioChunks.push(event.data);
+            mediaRecorder.onstop = () => {
+                const audioBlob = new Blob(audioChunks, { type: 'audio/mp3' });
+                const reader = new FileReader();
+                reader.onloadend = function() {
+                    const base64Audio = reader.result;
+                    const myName = document.getElementById('display-profile-name').innerText;
+                    const hora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+                    const vistoPorInicial = {};
+                    vistoPorInicial[myName] = true;
+
+                    database.ref(`mensagens_canais/${currentChatId}`).push({
+                        autor: myName,
+                        tipo: 'audio',
+                        midia: base64Audio,
+                        hora: hora,
+                        vistoPor: vistoPorInicial
+                    });
+                };
+                reader.readAsDataURL(audioBlob);
+                stream.getTracks().forEach(track => track.stop());
+            };
+
+            mediaRecorder.start();
+            isRecording = true;
+            btnAudio.innerText = "🛑";
+            btnAudio.style.background = "var(--danger)";
+        }).catch(() => alert("Permissão de microfone negada."));
+    } else {
+        mediaRecorder.stop();
+        isRecording = false;
+        btnAudio.innerText = "🎙️";
+        btnAudio.style.background = "var(--bg-secondary)";
     }
 }
 
@@ -302,9 +386,18 @@ function renderMessageBubble(msgId, msg, direction, myName) {
 
     const metadata = direction === 'received' ? `<span class="msg-meta">${msg.autor}</span>` : '';
     
+    let conteudoMídia = '';
+    if (msg.tipo === 'foto') {
+        conteudoMídia = `<img src="${msg.midia}" class="chat-img-render" onclick="openFullImage('${msg.midia}')" />`;
+    } else if (msg.tipo === 'audio') {
+        conteudoMídia = `<audio controls src="${msg.midia}" class="chat-audio-render"></audio>`;
+    } else {
+        conteudoMídia = `<p class="msg-texto">${msg.texto}</p>`;
+    }
+
     bubble.innerHTML = `
         ${metadata}
-        <p class="msg-texto">${msg.texto}</p>
+        ${conteudoMídia}
         <span class="message-time">
             ${msg.hora} ${direction === 'sent' ? `<span id="tick-container-${msgId}">✔️</span>` : ''}
         </span>
@@ -322,7 +415,6 @@ function updateTickMarkUI(msgId, msg) {
     const el = document.getElementById(`tick-container-${msgId}`);
     if (!el) return;
 
-    // Extrai os integrantes pelo Id da Sessão para computar se todos leram
     const integrantesChat = currentChatId.replace("SESSAO_", "").split("_");
     const totalEsperado = integrantesChat.length;
     const totalVisualizacoes = msg.vistoPor ? Object.keys(msg.vistoPor).length : 1;
@@ -336,9 +428,11 @@ function updateTickMarkUI(msgId, msg) {
     }
 }
 
-/* ==========================================================================
-   BOTÃO ENCERRAR ESCUTA (DESTRUIÇÃO EFÊMERA DE SESSÃO)
-   ========================================================================== */
+function openFullImage(src) {
+    const w = window.open();
+    w.document.write(`<body style="margin:0; background:#0b111e; display:flex; align-items:center; justify-content:center;"><img src="${src}" style="max-width:100%; max-height:100vh; border-radius:8px;"></body>`);
+}
+
 function endEscutaSession() {
     if (!currentChatId) return;
     deleteConversationNode(currentChatId);
@@ -347,13 +441,10 @@ function endEscutaSession() {
 
 function deleteConversationNode(chatId) {
     const myName = document.getElementById('display-profile-name').innerText;
-    
-    // Desvincula do painel do usuário que solicitou o encerramento
     database.ref(`conversas_ativas/${myName}/${chatId}`).remove();
     
     const integrantes = chatId.replace("SESSAO_", "").split("_");
     
-    // Verifica na raiz se todos os envolvidos limparam esse nó para apagar as mensagens definitivamente
     database.ref(`conversas_ativas`).once('value', (snap) => {
         const tudo = snap.val() || {};
         let limparMensagensSeguras = true;
@@ -373,9 +464,6 @@ function deleteConversationNode(chatId) {
     if (el) el.remove();
 }
 
-/* ==========================================================================
-   PROTEÇÃO TOTAL ANTI-PRINT E PROTEÇÃO VISUAL CONTRA CAPTURAS
-   ========================================================================== */
 function applyAntiScreenshotProtection() {
     window.addEventListener('blur', () => {
         document.body.style.filter = 'blur(20px) grayscale(100%)';
@@ -383,33 +471,14 @@ function applyAntiScreenshotProtection() {
     window.addEventListener('focus', () => {
         document.body.style.filter = 'none';
     });
-
-    window.addEventListener('keydown', (e) => {
-        if (e.key === 'PrintScreen' || (e.ctrlKey && e.key === 'p') || (e.metaKey && e.shiftKey && e.key === '3') || (e.metaKey && e.shiftKey && e.key === '4')) {
-            e.preventDefault();
-            executeBlackoutFlash();
-        }
-    });
 }
 
-function executeBlackoutFlash() {
-    const blackout = document.createElement('div');
-    blackout.style.position = 'fixed'; blackout.style.top = '0'; blackout.style.left = '0';
-    blackout.style.width = '100vw'; blackout.style.height = '100vh';
-    blackout.style.background = '#000000'; blackout.style.zIndex = '999999';
-    document.body.appendChild(blackout);
-
-    alert("🔒 CAMADA DE PRIVACIDADE: Capturas de tela e logs de imagem são proibidos no Na_escuta.");
-    setTimeout(() => blackout.remove(), 1200);
-}
-
-// Utilitários auxiliares de Interface
 function openAboutModal() { document.getElementById('about-modal').classList.add('active'); }
 function closeAboutModal() { document.getElementById('about-modal').classList.remove('active'); }
 function toggleSettingsMenu() { document.getElementById('settings-menu').classList.toggle('show'); }
 function logoutApp() { 
-    const myName = document.getElementById('display-profile-name').innerText;
     if (globalPresenceRef) globalPresenceRef.remove();
     localStorage.clear(); 
     location.reload(); 
-}
+            }
+        
