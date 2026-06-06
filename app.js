@@ -1,83 +1,52 @@
-let currentActiveRoom = null;
-let activeConversations = {};
-
-// Instancia a ponte de comunicação entre abas simulando o servidor
-const networkBridge = new BroadcastChannel('na_escuta_network_bridge');
-
-networkBridge.onmessage = function(event) {
-    const packet = event.data;
-    const myName = document.getElementById('display-profile-name').innerText;
-    
-    // Alguém na rede avisou que entrou numa sala ou te chamou
-    if (packet.type === 'ROOM_JOINED' && currentActiveRoom === packet.roomCode && packet.senderName !== myName) {
-        addNewContactToList(packet.senderName, packet.roomCode);
-        
-        // Adiciona também na nova lista de usuários online da tela Home automaticamente
-        addUserToList(packet.senderName, "Na escuta");
-        
-        // Devolve o sinal confirmando que tu também estás lá dentro
-        networkBridge.postMessage({
-            type: 'ROOM_SYNC',
-            roomCode: packet.roomCode,
-            senderName: myName
-        });
-    }
-
-    if (packet.type === 'ROOM_SYNC' && currentActiveRoom === packet.roomCode && packet.senderName !== myName) {
-        addNewContactToList(packet.senderName, packet.roomCode);
-        addUserToList(packet.senderName, "Na escuta");
-    }
-
-    // Mensagens em Tempo Real
-    if (packet.type === 'TEXT_MESSAGE' && currentActiveRoom === packet.roomCode) {
-        receiveTextMessage(packet.text, packet.senderName, packet.roomCode);
-    }
-
-    if (packet.type === 'AUDIO_MESSAGE' && currentActiveRoom === packet.roomCode) {
-        receiveAudioMessage(packet.senderName, packet.roomCode);
-    }
-
-    // Alguém clicou em sair do outro lado
-    if (packet.type === 'ROOM_LEFT' && currentActiveRoom === packet.roomCode) {
-        appendSystemNotice(`O utilizador remoto desconectou-se desta sala.`);
-    }
+// CONFIGURAÇÕES REAIS DO SEU FIREBASE
+const firebaseConfig = {
+    apiKey: "AIzaSyAiCNzPp0XfrJtBoax-1B6O9yljYHN2NHI",
+    authDomain: "plataformatemporeal.firebaseapp.com",
+    databaseURL: "https://plataformatemporeal-default-rtdb.firebaseio.com/",
+    projectId: "plataformatemporeal",
+    storageBucket: "plataformatemporeal.appspot.com",
+    messagingSenderId: "1014332115482",
+    appId: "1:1014332115482:web:f7072f322d403c56c49fa3"
 };
 
-/* ==========================================================================
-   SISTEMA DE ISOLAMENTO DE TELAS (Otimizado para Mobile e Desktop)
-   ========================================================================== */
-function alternarTela(idDaTelaAtiva) {
-    // Esconde absolutamente todas as telas primeiro, limpando resíduos visuais
-    document.querySelectorAll('.screen').forEach(tela => {
-        tela.classList.remove('active');
-    });
-    // Ativa apenas a tela desejada de forma limpa
-    document.getElementById(idDaTelaAtiva).classList.add('active');
-}
+// Inicializa o Firebase
+firebase.initializeApp(firebaseConfig);
+const database = firebase.database();
 
-// ==========================================
-// LOGICA DE SESSÃO E LOGIN
-// ==========================================
+// Estado Global de Sessão
+let currentChatId = null;
+let selectedUsers = []; // Armazena temporariamente marcados para chat
+
+let globalPresenceRef = null;
+let activeMessagesQuery = null;
+
+const zonaMensagens = document.getElementById('zona-mensagens');
+const textoMensagemInput = document.getElementById('texto-mensagem');
+const btnEnviar = document.getElementById('btn-enviar');
+
 window.onload = function() {
     const savedName = localStorage.getItem('na_escuta_username');
     if (savedName) {
         document.getElementById('display-profile-name').innerText = savedName;
-        alternarTela('screen-home'); // Transição limpa para a Home
+        alternarTela('screen-home');
+        initUserPresenceAndLoadNetwork(savedName);
     }
 
-    // Vincula o envio por clique na tecla Enter ao novo input de chat
-    const chatInput = document.getElementById('chat-input');
-    if (chatInput) {
-        chatInput.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                const text = chatInput.value.trim();
-                if (text !== "") {
-                    sendTextMessageAction(text);
-                    chatInput.value = ""; // Limpa a caixa
-                }
-            }
+    if (textoMensagemInput) {
+        textoMensagemInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') { enviarMensagem(); }
         });
     }
+    if (btnEnviar) {
+        btnEnviar.addEventListener('click', enviarMensagem);
+    }
+
+    applyAntiScreenshotProtection();
+};
+
+function alternarTela(idDaTelaAtiva) {
+    document.querySelectorAll('.screen').forEach(tela => tela.classList.remove('active'));
+    document.getElementById(idDaTelaAtiva).classList.add('active');
 }
 
 function enterApp() {
@@ -91,264 +60,356 @@ function enterApp() {
     
     if (keepLogged) localStorage.setItem('na_escuta_username', usernameInput);
     document.getElementById('display-profile-name').innerText = usernameInput;
-    alternarTela('screen-home'); // Transição limpa para a Home após login
-}
-
-// ==========================================
-// FLUXO DE ENTRAR AUTOMATICAMENTE / GERAR
-// ==========================================
-function openConnectModal() {
-    document.getElementById('connect-modal').classList.add('active');
-    document.getElementById('input-room-code').value = "";
-}
-
-function closeConnectModal() {
-    document.getElementById('connect-modal').classList.remove('active');
-}
-
-// CASO 1: Clica em Gerar Código -> Entra Direto
-function generateAndJoinRoom() {
-    const randId = Math.floor(1000 + Math.random() * 9000);
-    const code = `NE-${randId}`;
     
-    closeConnectModal();
-    navigateToRoom(code, `Sala ${code}`);
-}
-
-// CASO 2: Cola um código existente -> Entra Direto
-function joinWithExistingCode() {
-    const code = document.getElementById('input-room-code').value.trim().toUpperCase();
-    if (code === "") {
-        alert("Por favor, introduz um código válido!");
-        return;
-    }
-
-    closeConnectModal();
-    navigateToRoom(code, `Sala ${code}`);
-}
-
-// Executa a transição imediata para a sala ativa e sinaliza no "Socket"
-function navigateToRoom(roomCode, titleName) {
-    currentActiveRoom = roomCode;
-    const myName = document.getElementById('display-profile-name').innerText;
-
-    // Atualiza cabeçalho do chat
-    document.getElementById('chat-contact-name').innerText = titleName;
-    document.getElementById('chat-room-id-tag').innerText = roomCode;
-
-    // Limpa tela de mensagens anteriores
-    document.getElementById('chat-messages-container').innerHTML = `
-        <div class="crypto-notice">
-            🔒 Esta conversa está configurada para se autodestruir a cada 24 horas.
-        </div>
-    `;
-
-    // Inicializa estrutura de memória caso não exista
-    if (!activeConversations[roomCode]) {
-        activeConversations[roomCode] = { name: titleName, messages: [] };
-    }
-
-    // Troca de tela isolando o ambiente do Chat de forma segura
-    alternarTela('screen-chat');
-
-    // Avisa a rede distribuída que tu entraste nesta sala agora!
-    networkBridge.postMessage({
-        type: 'ROOM_JOINED',
-        roomCode: roomCode,
-        senderName: myName
-    });
-}
-
-// ==========================================
-// FLUXO DE DESCONECTAR E SAIR AUTOMATICAMENTE
-// ==========================================
-function disconnectAndLeaveRoom() {
-    if (!currentActiveRoom) return;
-
-    const myName = document.getElementById('display-profile-name').innerText;
-
-    // 1. Envia aviso de desconexão para o outro dispositivo
-    networkBridge.postMessage({
-        type: 'ROOM_LEFT',
-        roomCode: currentActiveRoom,
-        senderName: myName
-    });
-
-    // 2. Remove o item visual correspondente da lista da Home
-    const visualItem = document.getElementById(`chat-item-${currentActiveRoom}`);
-    if (visualItem) visualItem.remove();
-
-    // 3. Limpa a memória local desta sala
-    delete activeConversations[currentActiveRoom];
-
-    // 4. Se a lista ficou vazia, reinsere o estado vazio padrão
-    const listContainer = document.getElementById('main-chat-list');
-    if (listContainer && listContainer.children.length === 0) {
-        listContainer.innerHTML = `
-            <div class="empty-chat-state" id="empty-state">
-                <span class="empty-icon">💬</span>
-                <p>Nenhuma conversa ativa por aqui.</p>
-                <p class="empty-subtext">Clica em "+ Conectar" para iniciar uma sessão de chat segura.</p>
-            </div>
-        `;
-    }
-
-    // 5. Retorna para a Home limpando a tela de chat
-    currentActiveRoom = null;
+    initUserPresenceAndLoadNetwork(usernameInput);
     alternarTela('screen-home');
 }
 
-// ==========================================
-// MENSAGENS, ÁUDIO E AUXILIARES
-// ==========================================
-function addNewContactToList(remoteName, roomCode) {
-    const emptyState = document.getElementById('empty-state');
-    if (emptyState) emptyState.remove();
-
-    const listContainer = document.getElementById('main-chat-list');
-    if (document.getElementById(`chat-item-${roomCode}`)) return; // evita duplicar
-
-    // Altera dinamicamente o título do chat aberto para o nome real do utilizador que conectou
-    if (currentActiveRoom === roomCode) {
-        document.getElementById('chat-contact-name').innerText = remoteName;
-    }
-
-    const chatItem = document.createElement('div');
-    chatItem.className = 'chat-item';
-    chatItem.id = `chat-item-${roomCode}`;
-    chatItem.onclick = function() { navigateToRoom(roomCode, remoteName); };
+/* ==========================================================================
+   SISTEMA DE DISPONIBILIDADE E PRESENÇA DIRETA (SEM CONCEITO DE SALA)
+   ========================================================================== */
+function initUserPresenceAndLoadNetwork(username) {
+    // Referência única do usuário logado na raiz global de usuários ativos
+    globalPresenceRef = database.ref(`status_usuarios/${username}`);
     
-    chatItem.innerHTML = `
-        <div class="avatar">👤</div>
-        <div class="chat-info">
-            <div class="chat-header">
-                <h3>${remoteName}</h3>
-                <span class="chat-time">Agora</span>
-            </div>
-            <p class="chat-last-message" id="last-msg-${roomCode}">🟢 Sincronizado na sala ${roomCode}</p>
-        </div>
-    `;
-    if (listContainer) listContainer.appendChild(chatItem);
+    // Define status inicial padrão e configura remoção automática ao desconectar
+    globalPresenceRef.set({ label: "Na escuta", css: "online" });
+    globalPresenceRef.onDisconnect().remove();
+
+    // Começa a escutar TODOS os usuários disponíveis no sistema de forma reativa
+    database.ref('status_usuarios').on('value', (snapshot) => {
+        renderGlobalUsers(snapshot.val() || {}, username);
+    });
+
+    // Inicializa a escuta para carregar as conversas direcionadas a mim
+    listenToMyConversations(username);
 }
 
-function sendTextMessageAction(text) {
-    if (!currentActiveRoom) return;
+function changeUserStatus(label, cssClass) {
     const myName = document.getElementById('display-profile-name').innerText;
-    const timeNow = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-
-    activeConversations[currentActiveRoom].messages.push({ text: text, type: 'sent', sender: myName, time: timeNow });
-    appendMessageBubble(text, 'sent', myName, timeNow);
+    document.getElementById('display-profile-status').innerText = `🎧 ${label}`;
+    document.getElementById('display-profile-status').className = `status-tag ${cssClass}`;
     
-    if(document.getElementById(`last-msg-${currentActiveRoom}`)) {
-        document.getElementById(`last-msg-${currentActiveRoom}`).innerText = text;
-    }
-
-    networkBridge.postMessage({ type: 'TEXT_MESSAGE', roomCode: currentActiveRoom, senderName: myName, text: text });
+    database.ref(`status_usuarios/${myName}`).set({ label: label, css: cssClass });
+    toggleSettingsMenu();
 }
 
-function receiveTextMessage(text, senderName, roomCode) {
-    const timeNow = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-    if (activeConversations[roomCode]) {
-        activeConversations[roomCode].messages.push({ text: text, type: 'received', sender: senderName, time: timeNow });
-    }
-    if (currentActiveRoom === roomCode) {
-        appendMessageBubble(text, 'received', senderName, timeNow);
-    }
-    if (document.getElementById(`last-msg-${roomCode}`)) {
-        document.getElementById(`last-msg-${roomCode}`).innerText = `${senderName}: ${text}`;
-    }
+// Renderiza a listagem de todos os usuários que estão com o app aberto na nuvem
+function renderGlobalUsers(usersObj, myName) {
+    const listContainer = document.getElementById('user-list');
+    listContainer.innerHTML = '';
+
+    Object.keys(usersObj).forEach((userKey) => {
+        if (userKey === myName) return; // Omitir a si próprio da lista de seleção
+
+        const statusData = usersObj[userKey];
+        const isChecked = selectedUsers.includes(userKey) ? 'checked' : '';
+
+        const item = document.createElement('div');
+        item.className = 'user-item';
+        item.id = `user-row-${userKey}`;
+        
+        item.innerHTML = `
+            <input type="checkbox" class="user-select-checkbox" data-user="${userKey}" ${isChecked} onclick="event.stopPropagation(); toggleUserSelection('${userKey}')">
+            <div class="user-avatar" style="margin-left: 8px;">👤</div>
+            <div style="flex:1; margin-left: 4px;">
+                <div class="user-name">${userKey}</div>
+                <div class="user-status">${statusData.label}</div>
+            </div>
+            <span class="status-tag ${statusData.css}">${statusData.label}</span>
+        `;
+
+        item.onclick = () => toggleUserSelection(userKey);
+        listContainer.appendChild(item);
+    });
 }
 
-// Gravação de Áudio simplificada integrada à rede
-const audioBtn = document.getElementById('btn-audio');
-if (audioBtn) {
-    audioBtn.addEventListener('mousedown', () => { audioBtn.classList.add('recording'); audioBtn.innerText = "🛑"; });
-    audioBtn.addEventListener('mouseup', () => {
-        if (audioBtn.classList.contains('recording')) {
-            audioBtn.classList.remove('recording'); audioBtn.innerText = "🎙️";
-            if (!currentActiveRoom) return;
-            const myName = document.getElementById('display-profile-name').innerText;
-            const timeNow = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+function toggleUserSelection(username) {
+    const idx = selectedUsers.indexOf(username);
+    if (idx > -1) {
+        selectedUsers.splice(idx, 1);
+    } else {
+        selectedUsers.push(username);
+    }
+    
+    const cb = document.querySelector(`.user-select-checkbox[data-user="${username}"]`);
+    if (cb) cb.checked = selectedUsers.includes(username);
+
+    updateMultiChatButtonUI();
+}
+
+function updateMultiChatButtonUI() {
+    const btn = document.getElementById('btn-start-multi-chat');
+    if (btn) btn.innerText = `Conversar (${selectedUsers.length})`;
+}
+
+function filterUserList() {
+    const term = document.getElementById('search-user-input').value.toLowerCase();
+    document.querySelectorAll('.user-item').forEach(item => {
+        const name = item.querySelector('.user-name').innerText.toLowerCase();
+        item.style.display = name.includes(term) ? 'flex' : 'none';
+    });
+}
+
+/* ==========================================================================
+   GERENCIAMENTO DE CONVERSAS REALTIME BASEADO EM INTEGRANTES
+   ========================================================================== */
+function startChatWithSelected() {
+    if (selectedUsers.length === 0) {
+        alert("Escolha pelo menos 1 usuário disponível para iniciar o bate-papo!");
+        return;
+    }
+    
+    const myName = document.getElementById('display-profile-name').innerText;
+    
+    // Concatena os nomes ordenados para gerar uma chave única previsível para este conjunto
+    const todosParticipantes = [myName, ...selectedUsers].sort();
+    const hashChatId = "SESSAO_" + todosParticipantes.join("_");
+
+    // Registra a conversa no nó indexado de cada usuário participante
+    todosParticipantes.forEach((membro) => {
+        const parceiros = todosParticipantes.filter(n => n !== membro).join(", ");
+        database.ref(`conversas_ativas/${membro}/${hashChatId}`).set({
+            listaParceiros: parceiros,
+            timestamp: firebase.database.ServerValue.TIMESTAMP
+        });
+    });
+
+    const parceirosTexto = selectedUsers.join(", ");
+    selectedUsers = [];
+    updateMultiChatButtonUI();
+    document.querySelectorAll('.user-select-checkbox').forEach(c => c.checked = false);
+
+    loadChatInterface(hashChatId, parceirosTexto);
+}
+
+function listenToMyConversations(myName) {
+    database.ref(`conversas_ativas/${myName}`).on('value', (snapshot) => {
+        const listContainer = document.getElementById('main-chat-list');
+        const emptyState = document.getElementById('empty-state');
+        const conversas = snapshot.val() || {};
+
+        if (Object.keys(conversas).length > 0 && emptyState) emptyState.remove();
+        document.querySelectorAll('.chat-item').forEach(el => el.remove());
+
+        Object.keys(conversas).forEach((idDoChat) => {
+            const dados = conversas[idDoChat];
             
-            appendMessageBubble("🔊 Áudio enviado (0:05)", 'sent', myName, timeNow);
-            networkBridge.postMessage({ type: 'AUDIO_MESSAGE', roomCode: currentActiveRoom, senderName: myName });
+            const chatItem = document.createElement('div');
+            chatItem.className = 'chat-item';
+            chatItem.id = `chat-item-${idDoChat}`;
+            
+            chatItem.innerHTML = `
+                <div class="avatar">👤</div>
+                <div class="chat-info" onclick="loadChatInterface('${idDoChat}', '${dados.listaParceiros}')">
+                    <div class="chat-header">
+                        <h3 style="max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${dados.listaParceiros}</h3>
+                        <span class="chat-time">Canal Aberto</span>
+                    </div>
+                    <p class="chat-last-message" id="last-txt-${idDoChat}">Nenhuma mensagem trafegada ainda.</p>
+                </div>
+                <button class="small-btn-end" onclick="event.stopPropagation(); deleteConversationNode('${idDoChat}')">Encerrar</button>
+            `;
+            listContainer.appendChild(chatItem);
+
+            // Escuta a última mensagem postada no canal
+            database.ref(`mensagens_canais/${idDoChat}`).limitToLast(1).on('child_added', (msgSnap) => {
+                const txtEl = document.getElementById(`last-txt-${idDoChat}`);
+                if (txtEl) txtEl.innerText = `${msgSnap.val().autor}: ${msgSnap.val().texto}`;
+            });
+        });
+    });
+}
+
+function loadChatInterface(chatId, titleText) {
+    currentChatId = chatId;
+    document.getElementById('chat-contact-name').innerText = titleText;
+    zonaMensagens.innerHTML = `
+        <div class="crypto-notice">🔒 Canal criptografado estabelecido direto com os envolvidos.</div>
+    `;
+
+    alternarTela('screen-chat');
+
+    if (activeMessagesQuery) activeMessagesQuery.off();
+
+    activeMessagesQuery = database.ref(`mensagens_canais/${chatId}`);
+    
+    activeMessagesQuery.on('child_added', (snapshot) => {
+        const msgId = snapshot.key;
+        const msg = snapshot.val();
+        const myName = document.getElementById('display-profile-name').innerText;
+        const direction = (msg.autor === myName) ? 'sent' : 'received';
+
+        // Confirmação de leitura instantânea ao receber no dispositivo
+        if (direction === 'received' && (!msg.vistoPor || !msg.vistoPor[myName])) {
+            database.ref(`mensagens_canais/${chatId}/${msgId}/vistoPor/${myName}`).set(true);
+        }
+
+        renderMessageBubble(msgId, msg, direction, myName);
+    });
+
+    // Observa alterações para atualização dinâmica dos ticks (✔️ -> ✔️✔️)
+    activeMessagesQuery.on('child_changed', (snapshot) => {
+        const msgId = snapshot.key;
+        const msg = snapshot.val();
+        const myName = document.getElementById('display-profile-name').innerText;
+        
+        if (msg.autor === myName) {
+            updateTickMarkUI(msgId, msg);
         }
     });
 }
 
-function receiveAudioMessage(senderName, roomCode) {
-    const timeNow = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-    if (currentActiveRoom === roomCode) {
-        appendMessageBubble("🔊 Áudio recebido (0:05)", 'received', senderName, timeNow);
+function exitChatView() {
+    if (activeMessagesQuery) activeMessagesQuery.off();
+    currentChatId = null;
+    alternarTela('screen-home');
+}
+
+/* ==========================================================================
+   INTERAÇÃO DE MENSAGENS E GESTÃO DE MARCAÇÃO DE ENTREGA/VISTO
+   ========================================================================== */
+function enviarMensagem() {
+    if (!currentChatId) return;
+    const myName = document.getElementById('display-profile-name').innerText;
+    const texto = textoMensagemInput.value.trim();
+
+    if (texto !== "") {
+        const agora = new Date();
+        const horaFormatada = agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+        const novaMsgRef = database.ref(`mensagens_canais/${currentChatId}`).push();
+        const vistoPorInicial = {};
+        vistoPorInicial[myName] = true;
+
+        novaMsgRef.set({
+            autor: myName,
+            texto: texto,
+            hora: horaFormatada,
+            vistoPor: vistoPorInicial
+        });
+
+        textoMensagemInput.value = "";
     }
 }
 
-function appendMessageBubble(text, direction, sender, time) {
-    const container = document.getElementById('chat-messages-container');
+function renderMessageBubble(msgId, msg, direction, myName) {
+    if (document.getElementById(`msg-${msgId}`)) return;
+
     const bubble = document.createElement('div');
     bubble.className = `message ${direction}`;
-    bubble.innerHTML = `<p>${text}</p><span class="message-time">${time}</span>`;
-    if (container) {
-        container.appendChild(bubble);
-        container.scrollTop = container.scrollHeight;
+    bubble.id = `msg-${msgId}`;
+
+    const metadata = direction === 'received' ? `<span class="msg-meta">${msg.autor}</span>` : '';
+    
+    bubble.innerHTML = `
+        ${metadata}
+        <p class="msg-texto">${msg.texto}</p>
+        <span class="message-time">
+            ${msg.hora} ${direction === 'sent' ? `<span id="tick-container-${msgId}">✔️</span>` : ''}
+        </span>
+    `;
+
+    zonaMensagens.appendChild(bubble);
+    zonaMensagens.scrollTop = zonaMensagens.scrollHeight;
+
+    if (direction === 'sent') {
+        updateTickMarkUI(msgId, msg);
     }
 }
 
-function appendSystemNotice(text) {
-    const container = document.getElementById('chat-messages-container');
-    const notice = document.createElement('div');
-    notice.className = 'crypto-notice';
-    notice.style.background = 'rgba(230, 57, 70, 0.15)';
-    notice.style.color = 'var(--danger)';
-    notice.innerText = text;
-    if (container) container.appendChild(notice);
+function updateTickMarkUI(msgId, msg) {
+    const el = document.getElementById(`tick-container-${msgId}`);
+    if (!el) return;
+
+    // Extrai os integrantes pelo Id da Sessão para computar se todos leram
+    const integrantesChat = currentChatId.replace("SESSAO_", "").split("_");
+    const totalEsperado = integrantesChat.length;
+    const totalVisualizacoes = msg.vistoPor ? Object.keys(msg.vistoPor).length : 1;
+
+    if (totalVisualizacoes >= totalEsperado) {
+        el.innerText = "✔️✔️";
+        el.style.color = "var(--accent)";
+    } else {
+        el.innerText = "✔️";
+        el.style.color = "rgba(255, 255, 255, 0.4)";
+    }
 }
 
+/* ==========================================================================
+   BOTÃO ENCERRAR ESCUTA (DESTRUIÇÃO EFÊMERA DE SESSÃO)
+   ========================================================================== */
+function endEscutaSession() {
+    if (!currentChatId) return;
+    deleteConversationNode(currentChatId);
+    exitChatView();
+}
+
+function deleteConversationNode(chatId) {
+    const myName = document.getElementById('display-profile-name').innerText;
+    
+    // Desvincula do painel do usuário que solicitou o encerramento
+    database.ref(`conversas_ativas/${myName}/${chatId}`).remove();
+    
+    const integrantes = chatId.replace("SESSAO_", "").split("_");
+    
+    // Verifica na raiz se todos os envolvidos limparam esse nó para apagar as mensagens definitivamente
+    database.ref(`conversas_ativas`).once('value', (snap) => {
+        const tudo = snap.val() || {};
+        let limparMensagensSeguras = true;
+
+        integrantes.forEach((p) => {
+            if (tudo[p] && tudo[p][chatId]) {
+                limparMensagensSeguras = false;
+            }
+        });
+
+        if (limparMensagensSeguras) {
+            database.ref(`mensagens_canais/${chatId}`).remove();
+        }
+    });
+
+    const el = document.getElementById(`chat-item-${chatId}`);
+    if (el) el.remove();
+}
+
+/* ==========================================================================
+   PROTEÇÃO TOTAL ANTI-PRINT E PROTEÇÃO VISUAL CONTRA CAPTURAS
+   ========================================================================== */
+function applyAntiScreenshotProtection() {
+    window.addEventListener('blur', () => {
+        document.body.style.filter = 'blur(20px) grayscale(100%)';
+    });
+    window.addEventListener('focus', () => {
+        document.body.style.filter = 'none';
+    });
+
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'PrintScreen' || (e.ctrlKey && e.key === 'p') || (e.metaKey && e.shiftKey && e.key === '3') || (e.metaKey && e.shiftKey && e.key === '4')) {
+            e.preventDefault();
+            executeBlackoutFlash();
+        }
+    });
+}
+
+function executeBlackoutFlash() {
+    const blackout = document.createElement('div');
+    blackout.style.position = 'fixed'; blackout.style.top = '0'; blackout.style.left = '0';
+    blackout.style.width = '100vw'; blackout.style.height = '100vh';
+    blackout.style.background = '#000000'; blackout.style.zIndex = '999999';
+    document.body.appendChild(blackout);
+
+    alert("🔒 CAMADA DE PRIVACIDADE: Capturas de tela e logs de imagem são proibidos no Na_escuta.");
+    setTimeout(() => blackout.remove(), 1200);
+}
+
+// Utilitários auxiliares de Interface
 function openAboutModal() { document.getElementById('about-modal').classList.add('active'); }
 function closeAboutModal() { document.getElementById('about-modal').classList.remove('active'); }
 function toggleSettingsMenu() { document.getElementById('settings-menu').classList.toggle('show'); }
-function toggleTimerMenu() { document.getElementById('timer-menu').classList.toggle('show'); }
-function changeUserStatus(t, c) { applyStatusInterface(t, c); toggleSettingsMenu(); }
-function applyStatusInterface(t, c) {
-    const tag = document.getElementById('display-profile-status');
-    tag.innerText = t; tag.className = `status-tag ${c}`;
+function logoutApp() { 
+    const myName = document.getElementById('display-profile-name').innerText;
+    if (globalPresenceRef) globalPresenceRef.remove();
+    localStorage.clear(); 
+    location.reload(); 
 }
-function logoutApp() { localStorage.clear(); location.reload(); }
-
-/* ==========================================================================
-   8. INTEGRAÇÃO DINÂMICA DA NOVA LISTA DE USUÁRIOS ONLINE
-   ========================================================================== */
-
-// Função para adicionar um novo usuário na tela home
-function addUserToList(name, status) {
-    const list = document.getElementById('user-list');
-    if (!list) return;
-
-    // Evita duplicar o mesmo usuário visualmente se ele já estiver na lista
-    const existingUsers = list.getElementsByClassName('user-name');
-    for (let user of existingUsers) {
-        if (user.innerText === name) return;
-    }
-
-    const userDiv = document.createElement('div');
-    userDiv.className = 'user-item';
-    userDiv.innerHTML = `
-        <span class="user-avatar">🟢</span>
-        <div>
-            <div class="user-name">${name}</div>
-            <div class="user-status">${status}</div>
-        </div>
-    `;
-    userDiv.onclick = () => openChatWith(name);
-    list.appendChild(userDiv);
-}
-
-// Função para mudar de tela e abrir conversa
-function openChatWith(userName) {
-    // Esconde a tela home e mostra a tela de chat usando seu alternador nativo
-    alternarTela('screen-chat');
-    
-    // Atualiza o nome do contato correspondente no topo do cabeçalho do chat
-    document.getElementById('chat-contact-name').innerText = userName;
-}
-    
