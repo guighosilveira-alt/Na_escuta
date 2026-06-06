@@ -1,5 +1,5 @@
 /* ==========================================================================
-   1. VARIÁVEIS DE CORES E CONFIGURAÇÕES GERAIS
+   1. CONFIGURAÇÃO DE CORES DA INTERFACE ORIGINAL PRESERVADA
    ========================================================================== */
 :root {
     --bg-primary: #0b111e;
@@ -34,7 +34,7 @@ html, body {
 }
 
 /* ==========================================================================
-   2. TELA (.screen)
+   2. CONTROLE DE TRANSIÇÃO E TELAS (.screen)
    ========================================================================== */
 .screen {
     display: none;
@@ -68,7 +68,7 @@ html, body {
 }
 
 /* ==========================================================================
-   3. DESIGN DA TELA DE ONBOARDING
+   3. ESTILIZAÇÃO DO ONBOARDING
    ========================================================================== */
 #screen-onboarding {
     justify-content: center;
@@ -100,7 +100,7 @@ html, body {
 .form-group label { display: block; font-size: 0.85rem; font-weight: 500; color: var(--text-muted); margin-bottom: 8px; }
 .form-group input[type="text"] {
     width: 100%; padding: 14px 16px; background: var(--bg-primary);
-    border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; color: var(--text-main); margin-bottom: 16px; font-size: 0.95rem;
+    border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; color: var(--text-main); margin-bottom: 16px; font-size: 0.95rem; outline: none;
 }
 
 #btn-enter { width: 100%; background: var(--accent); color: #0b111e; border: none; padding: 14px; font-size: 0.95rem; font-weight: 700; border-radius: 10px; cursor: pointer; }
@@ -108,14 +108,14 @@ html, body {
 .checkbox-label { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; color: var(--text-muted); cursor: pointer; }
 
 /* ==========================================================================
-   4. CABEÇALHOS (APP-HEADER)
+   4. CABEÇALHOS DO SISTEMA (APP-HEADER)
    ========================================================================== */
 .app-header {
     display: flex; align-items: center; justify-content: space-between;
     padding-top: env(safe-area-inset-top, 10px); padding-bottom: 12px;
     width: 100%; flex-shrink: 0; border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 }
-.user-info { display: flex; align-items: center; gap: 12px; }
+.user-info { display: flex; align-items: center; gap: 12px; min-width: 0; }
 #profile-avatar {
     font-size: 1.5rem; width: 38px; height: 38px; background: var(--bg-secondary);
     border-radius: 50%; display: flex; align-items: center; justify-content: center;
@@ -137,16 +137,16 @@ html, body {
 .btn-end-stream:active { background: rgba(230, 57, 70, 0.12); }
 
 /* ==========================================================================
-   5. BARRA DE PESQUISA (SEARCH BAR)
+   5. BARRA DE FILTRAGEM (SEARCH BAR)
    ========================================================================== */
 .search-bar { width: 100%; margin: 14px 0; flex-shrink: 0; }
 .search-bar input {
     width: 100%; padding: 12px 16px; border-radius: 10px;
-    border: none; background: var(--bg-secondary); color: var(--text-main); font-size: 0.95rem;
+    border: none; background: var(--bg-secondary); color: var(--text-main); font-size: 0.95rem; outline: none;
 }
 
 /* ==========================================================================
-   6. LISTA DE DISPONIBILIDADE GLOBAL E CHECKBOXES
+   6. CONTROLE E LISTAGENS COLETIVAS (REATIVAS)
    ========================================================================== */
 .user-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 6px; width: 100%; flex-shrink: 0; max-height: 200px; overflow-y: auto; }
 .user-item {
@@ -168,7 +168,7 @@ html, body {
 }
 
 /* ==========================================================================
-   7. CHAT-LIST E BALÕES DE MENSAGEM
+   7. CHAT-LIST E REQUISITOS MULTIMÍDIA DO CHAT
    ========================================================================== */
 .chat-list { flex: 1; overflow-y: auto; width: 100%; display: flex; flex-direction: column; gap: 10px; }
 .empty-chat-state { margin: auto; text-align: center; padding: 20px; }
@@ -199,16 +199,40 @@ html, body {
     padding: 6px 10px; border-radius: 6px; font-size: 0.72rem; font-weight: bold; cursor: pointer;
 }
 
-/* ==========================================================================
-   8. FOOTER E ENTRADAS DO CHAT
-   ========================================================================== */
-.chat-footer { display: flex; align-items: center; gap: 10px; padding-top: 10px; padding-bottom: env(safe-area-inset-bottom, 10px); background: var(--bg-primary); flex-shrink: 0; }
-.input-wrapper { flex: 1; }
-.chat-footer input { width: 100%; padding: 14px 18px; background: var(--bg-secondary); border: none; border-radius: 24px; color: var(--text-main); font-size: 0.95rem; }
-.audio-btn { width: 48px; height: 48px; background: var(--bg-secondary); border: none; border-radius: 50%; font-size: 1.2rem; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--text-main); }
+/* RENDERS DE MÍDIA ADICIONADOS */
+.chat-img-render {
+    max-width: 100%;
+    max-height: 180px;
+    border-radius: 8px;
+    margin: 4px 0;
+    cursor: pointer;
+    display: block;
+}
+
+.chat-audio-render {
+    max-width: 100%;
+    margin-top: 4px;
+    outline: none;
+}
 
 /* ==========================================================================
-   9. DROPDOWNS E MODAIS
+   8. FOOTER DO CHAT (ALINHAMENTO MULTIMÍDIA LADO A LADO)
+   ========================================================================== */
+.chat-footer { 
+    display: flex; 
+    align-items: center; 
+    gap: 10px; 
+    padding-top: 10px; 
+    padding-bottom: env(safe-area-inset-bottom, 10px); 
+    background: var(--bg-primary); 
+    flex-shrink: 0; 
+}
+.input-wrapper { flex: 1; }
+.chat-footer input { width: 100%; padding: 14px 18px; background: var(--bg-secondary); border: none; border-radius: 24px; color: var(--text-main); font-size: 0.95rem; outline: none; }
+.audio-btn { width: 44px; height: 44px; background: var(--bg-secondary); border: none; border-radius: 50%; font-size: 1.1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--text-main); flex-shrink: 0; }
+
+/* ==========================================================================
+   9. DROPDOWNS E ELEMENTOS DE MODAL
    ========================================================================== */
 .dropdown-menu { display: none; position: absolute; top: 65px; right: 16px; background: var(--bg-secondary); border-radius: 10px; padding: 8px 0; width: 200px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); z-index: 10; }
 .dropdown-menu.show { display: block; }
@@ -225,5 +249,5 @@ html, body {
 @keyframes surgimento {
     from { opacity: 0; transform: translateY(8px); }
     to { opacity: 1; transform: translateY(0); }
-   }
-                     
+                           }
+   
