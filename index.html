@@ -5,12 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Na_escuta</title>
     <link rel="stylesheet" href="style.css">
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 </head>
 <body>
 
     <div id="screen-onboarding" class="screen active">
         <div class="tech-bg-overlay"></div>
-        
         <div class="onboarding-content">
             <div class="logo-container">
                 <div class="icon-headphones">🎧</div>
@@ -25,7 +26,6 @@
                 <div class="remember-container">
                     <label class="checkbox-label">
                         <input type="checkbox" id="keep-logged" checked>
-                        <span class="custom-checkbox"></span>
                         Manter conectado neste dispositivo
                     </label>
                 </div>
@@ -40,33 +40,8 @@
         <div class="modal-content">
             <h3>Sobre o Na_escuta</h3>
             <p>Privacidade absoluta e efemeridade digital. Sem registos centrais ou logs permanentes.</p>
-            
-            <div class="modal-footer-note">
-                Criado e desenvolvido por Rodrigo Silveira
-            </div>
-            
+            <div class="modal-footer-note">Criado e desenvolvido por Rodrigo Silveira</div>
             <button onclick="closeAboutModal()" style="margin-top: 15px; width: 100%;">Entendido</button>
-        </div>
-    </div>
-
-    <div id="connect-modal" class="modal-overlay">
-        <div class="modal-content">
-            <h3>🔗 Conectar a uma Sala</h3>
-            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 15px;">Gera um código rápido ou cola o do teu amigo para entrar na sala automaticamente.</p>
-            
-            <div style="margin-bottom: 15px;">
-                <button onclick="generateAndJoinRoom()" style="background: var(--bg-primary); color: var(--accent); border: 1px solid var(--accent); padding: 10px; margin: 0; width: 100%;">🎲 Gerar Código e Entrar</button>
-            </div>
-
-            <div style="text-align: left; width: 100%;">
-                <label style="font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 5px;">Ou cola o código recebido:</label>
-                <input type="text" id="input-room-code" placeholder="Ex: NE-1234" style="padding: 12px; font-size: 0.9rem; text-transform: uppercase;">
-            </div>
-
-            <div style="display: flex; gap: 10px; margin-top: 15px; width: 100%;">
-                <button onclick="closeConnectModal()" style="background: var(--danger); color: white; margin: 0; padding: 12px; flex: 1;">Cancelar</button>
-                <button onclick="joinWithExistingCode()" style="margin: 0; padding: 12px; flex: 1;">Conectar</button>
-            </div>
         </div>
     </div>
 
@@ -82,64 +57,61 @@
             <button class="icon-btn" onclick="toggleSettingsMenu()">⚙️</button>
 
             <div id="settings-menu" class="dropdown-menu">
-                <div class="menu-info">🔒 Conexão Local Ativa</div>
+                <div class="menu-info">🔒 Nuvem Ativa</div>
                 <hr style="border-color: var(--bg-primary); margin: 2px 0;">
                 <div class="status-select-title">Alterar Status:</div>
                 <div onclick="changeUserStatus('Na escuta', 'online')">🎧 Na escuta</div>
                 <div onclick="changeUserStatus('Só de olho', 'away')">🟡 Só de olho</div>
                 <div onclick="changeUserStatus('Ocupado', 'busy')">🔴 Ocupado</div>
                 <hr style="border-color: var(--bg-primary); margin: 5px 0;">
-                <div onclick="logoutApp()" style="color: var(--danger); font-weight: bold;">🚪 Sair (Mudar Codinome)</div>
+                <div onclick="logoutApp()" style="color: var(--danger); font-weight: bold;">🚪 Sair</div>
             </div>
         </header>
 
         <div class="search-bar">
-            <input type="text" placeholder="🔍 Procurar conversa...">
+            <input type="text" id="search-user-input" placeholder="🔍 Procurar usuário ativo..." oninput="filterUserList()">
         </div>
 
+        <div class="section-title-container" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <span style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Usuários Disponíveis</span>
+            <button id="btn-start-multi-chat" onclick="startChatWithSelected()" class="btn-action-chat">Conversar (0)</button>
+        </div>
         <div id="user-list" class="user-list"></div>
 
+        <div class="section-title" style="font-size: 0.8rem; color: var(--text-muted); margin: 16px 0 8px 0; text-transform: uppercase; letter-spacing: 0.5px;">Conversas em Andamento</div>
         <main class="chat-list" id="main-chat-list">
             <div class="empty-chat-state" id="empty-state">
                 <span class="empty-icon">💬</span>
                 <p>Nenhuma conversa ativa por aqui.</p>
-                <p class="empty-subtext">Clica em "+ Conectar" para iniciar uma sessão de chat segura.</p>
+                <p class="empty-subtext">Selecione um ou mais usuários acima para iniciar uma escuta.</p>
             </div>
         </main>
-
-        <button class="fab-btn" onclick="openConnectModal()">➕ Conectar</button>
     </div>
 
-    <div id="screen-chat" class="screen">
+    <div id="screen-chat" class="screen protection-overlay">
         <div class="app-header">
             <div class="user-info">
-                <button class="icon-btn" onclick="disconnectAndLeaveRoom()">⬅️</button>
+                <button class="icon-btn" onclick="exitChatView()">⬅️</button>
                 <div class="user-text-details">
-                    <h2 id="chat-contact-name">Buscando...</h2>
-                    <span class="status-tag online">🟢 Na escuta</span>
+                    <h2 id="chat-contact-name" style="font-size: 1rem; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Buscando...</h2>
+                    <span class="status-tag online" id="chat-contact-status" style="font-size: 0.7rem;">Sessão Ativa</span>
                 </div>
             </div>
-            <div style="font-size: 0.85rem; color: var(--text-muted);" id="chat-room-id-tag">NE-0000</div>
+            <button id="btn-close-scuta" class="btn-end-stream" onclick="endEscutaSession()">Encerrar Escuta</button>
         </div>
 
-        <div class="chat-messages" id="chat-messages-container">
-            <div class="crypto-notice">
-                🔒 Esta conversa está configurada para se autodestruir a cada 24 horas.
+        <div class="chat-messages" id="zona-mensagens">
             </div>
-        </div>
 
         <div class="chat-footer">
             <div class="input-wrapper">
-                <input type="text" id="chat-input" placeholder="Digita uma mensagem secreta..." autocomplete="off">
+                <input type="text" id="texto-mensagem" placeholder="Digita uma mensagem secreta..." autocomplete="off">
             </div>
-            <button class="audio-btn" id="btn-audio">🎙️</button>
+            <button class="audio-btn" id="btn-enviar">🎙️</button>
         </div>
     </div>
 
     <script src="app.js"></script>
 </body>
-</html>
-
-
-
-
+    </html>
+            
