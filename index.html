@@ -100,18 +100,22 @@
             <button id="btn-close-scuta" class="btn-end-stream" onclick="endEscutaSession()">Encerrar Escuta</button>
         </div>
 
-        <div class="chat-messages" id="zona-mensagens">
-            </div>
+        <div class="chat-messages" id="zona-mensagens"></div>
+
+        <input type="file" id="hidden-file-input" accept="image/*" style="display: none;" onchange="enviarFoto(this)">
 
         <div class="chat-footer">
+            <button class="audio-btn" onclick="triggerPhotoUpload()">📷</button>
             <div class="input-wrapper">
                 <input type="text" id="texto-mensagem" placeholder="Digita uma mensagem secreta..." autocomplete="off">
             </div>
-            <button class="audio-btn" id="btn-enviar">🎙️</button>
+            <button class="audio-btn" id="btn-audio" onclick="toggleAudioRecording()">🎙️</button>
+            <button class="audio-btn" id="btn-enviar" style="background: var(--accent); color: #0b111e; display: none;">➔</button>
         </div>
     </div>
 
     <script src="app.js"></script>
 </body>
-    </html>
+                    </html>
+
             
