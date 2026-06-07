@@ -1,12 +1,12 @@
 // CONFIGURAÇÕES DO FIREBASE
 const firebaseConfig = {
-    apiKey: "AIzaSyAiCNzPp0XfrJtBoax-1B6O9ylYHN2NHI",
-    authDomain: "plataformatemporeal.firebaseapp.com",
-    databaseURL: "https://plataformatemporeal-default-rtdb.firebaseio.com/",
-    projectId: "plataformatemporeal",
-    storageBucket: "plataformatemporeal.appspot.com",
-    messagingSenderId: "1014332115482",
-    appId: "1:1014332115482:web:f7072f322d403c56c49fa3"
+  apiKey: "AIzaSyDNcpnh-fA9CTPAC2A6l3MzuA2tmLIqrws",
+  authDomain: "na-escuta-app.firebaseapp.com",
+  projectId: "na-escuta-app",
+  storageBucket: "na-escuta-app.firebasestorage.app",
+  messagingSenderId: "651225257934",
+  appId: "1:651225257934:web:99458643dae15e40cd7d9f",
+  measurementId: "G-7QFPXGGPWL"
 };
 
 firebase.initializeApp(firebaseConfig);
