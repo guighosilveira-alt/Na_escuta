@@ -5,10 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Na_escuta</title>
     <link rel="stylesheet" href="style.css">
+    
+    <style>
+        #screen-home {
+            position: relative; 
+            min-height: 100vh;
+        }
+    </style>
+
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
 </head>
-<body>
+<body class="anti-screenshot">
 
     <div id="screen-onboarding" class="screen active">
         <div class="tech-bg-overlay"></div>
@@ -20,18 +29,38 @@
             </div>
 
             <div class="form-group">
-                <label for="username">Como queres ser chamado?</label>
-                <input type="text" id="username" placeholder="Digita o teu nome ou codinome..." autocomplete="off">
+                <label for="username">Usuário Identificado:</label>
+                <input type="text" id="username" placeholder="Nenhum usuário cadastrado..." autocomplete="off" readonly style="opacity: 0.8; background: rgba(0,0,0,0.2);">
                 
-                <div class="remember-container">
+                <div class="remember-container" style="margin-bottom: 16px;">
                     <label class="checkbox-label">
-                        <input type="checkbox" id="keep-logged" checked>
-                        Manter conectado neste dispositivo
+                        <input type="checkbox" id="keep-logged" checked disabled>
+                        Conexão segura ativa neste dispositivo
                     </label>
                 </div>
 
                 <button id="btn-enter" onclick="enterApp()">ENTRAR NA ESCUTA</button>
+                <button id="btn-go-cadastro" class="btn-secondary-link" onclick="alternarTela('screen-cadastro')" style="color: var(--accent); font-weight: bold; margin-top: 15px;">👤 Cadastrar / Editar Usuário</button>
                 <button id="btn-about" class="btn-secondary-link" onclick="openAboutModal()">💡 Sobre o aplicativo</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="screen-cadastro" class="screen">
+        <div class="tech-bg-overlay"></div>
+        <div class="onboarding-content">
+            <div class="logo-container">
+                <div class="icon-headphones">🔑</div>
+                <h1>Cadastro</h1>
+                <p class="subtitle">Define o teu nome ou codinome definitivo.</p>
+            </div>
+
+            <div class="form-group">
+                <label for="new-username">Nome do Usuário:</label>
+                <input type="text" id="new-username" placeholder="Digita o teu codinome..." autocomplete="off">
+                
+                <button id="btn-save-cadastro" onclick="salvarCadastroDefinitivo()" style="width: 100%; background: var(--accent); color: #0b111e; border: none; padding: 14px; font-size: 0.95rem; font-weight: 700; border-radius: 10px; cursor: pointer;">SALVAR CONFIGURAÇÃO</button>
+                <button class="btn-secondary-link" onclick="voltarParaOnboarding()">Voltar</button>
             </div>
         </div>
     </div>
@@ -45,7 +74,20 @@
         </div>
     </div>
 
+    <div id="confirm-modal" class="modal-overlay">
+        <div class="modal-content text-center">
+            <h3 style="color: var(--danger);">Destruir Conversa?</h3>
+            <p style="margin-top: 8px; font-size: 0.9rem; color: var(--text-muted);">Esta ação apagará de forma irreversível todas as mensagens e mídias deste canal em ambos os dispositivos.</p>
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button onclick="closeConfirmModal()" style="flex: 1; background: var(--bg-primary); color: white; border: 1px solid rgba(255,255,255,0.1); padding: 10px; border-radius: 8px;">Cancelar</button>
+                <button onclick="executeForcedSessionDeletion()" style="flex: 1; background: var(--danger); color: white; border: none; padding: 10px; border-radius: 8px; font-weight: bold;">Sim, Destruir</button>
+            </div>
+        </div>
+    </div>
+
     <div id="screen-home" class="screen">
+        <div class="home-bg-overlay"></div>
+        
         <header class="app-header">
             <div class="user-info">
                 <span class="user-avatar" id="profile-avatar">👤</span>
@@ -54,17 +96,9 @@
                     <span class="status-tag online" id="display-profile-status">🎧 Na escuta</span>
                 </div>
             </div>
-            <button class="icon-btn" onclick="toggleSettingsMenu()">⚙️</button>
-
-            <div id="settings-menu" class="dropdown-menu">
-                <div class="menu-info">🔒 Nuvem Ativa</div>
-                <hr style="border-color: var(--bg-primary); margin: 2px 0;">
-                <div class="status-select-title">Alterar Status:</div>
-                <div onclick="changeUserStatus('Na escuta', 'online')">🎧 Na escuta</div>
-                <div onclick="changeUserStatus('Só de olho', 'away')">🟡 Só de olho</div>
-                <div onclick="changeUserStatus('Ocupado', 'busy')">🔴 Ocupado</div>
-                <hr style="border-color: var(--bg-primary); margin: 5px 0;">
-                <div onclick="logoutApp()" style="color: var(--danger); font-weight: bold;">🚪 Sair</div>
+            <div class="header-actions" style="display: flex; align-items: center; gap: 8px;">
+                <button class="icon-btn" onclick="alternarTela('screen-settings')" title="Configurações">⚙️</button>
+                <button class="icon-btn" onclick="encerrarDefinitivoApp()" style="color: var(--danger); font-size: 1.25rem;" title="Sair do Aplicativo">🚪</button>
             </div>
         </header>
 
@@ -82,40 +116,74 @@
         <main class="chat-list" id="main-chat-list">
             <div class="empty-chat-state" id="empty-state">
                 <span class="empty-icon">💬</span>
-                <p>Nenhuma conversa ativa por aqui.</p>
+                <p>Nenhuma conversa activa por aqui.</p>
                 <p class="empty-subtext">Selecione um ou mais usuários acima para iniciar uma escuta.</p>
             </div>
         </main>
     </div>
 
     <div id="screen-chat" class="screen protection-overlay">
-        <div class="app-header">
+        <header class="app-header">
             <div class="user-info">
                 <button class="icon-btn" onclick="exitChatView()">⬅️</button>
                 <div class="user-text-details">
-                    <h2 id="chat-contact-name" style="font-size: 1rem; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Buscando...</h2>
+                    <h2 id="chat-contact-name" style="font-size: 1rem; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Buscando...</h2>
                     <span class="status-tag online" id="chat-contact-status" style="font-size: 0.7rem;">Sessão Ativa</span>
                 </div>
             </div>
-            <button id="btn-close-scuta" class="btn-end-stream" onclick="endEscutaSession()">Encerrar Escuta</button>
-        </div>
+            <button id="btn-close-scuta" class="btn-end-stream" onclick="promptEndEscutaSession()">Encerrar Escuta</button>
+        </header>
+
+        <div id="typing-indicator-bar" class="typing-container"></div>
 
         <div class="chat-messages" id="zona-mensagens"></div>
 
         <input type="file" id="hidden-file-input" accept="image/*" style="display: none;" onchange="enviarFoto(this)">
 
         <div class="chat-footer">
-            <button class="audio-btn" onclick="triggerPhotoUpload()">📷</button>
-            <div class="input-wrapper">
-                <input type="text" id="texto-mensagem" placeholder="Digita uma mensagem secreta..." autocomplete="off">
+            <button class="audio-btn" id="btn-photo" onclick="triggerPhotoUpload()">📷</button>
+            <div class="input-wrapper" style="position: relative;">
+                <input type="text" id="texto-mensagem" placeholder="Digita uma mensagem secreta..." autocomplete="off" oninput="handleTypingEvent()">
+                <div id="audio-timer-badge" class="timer-badge">00:00</div>
             </div>
             <button class="audio-btn" id="btn-audio" onclick="toggleAudioRecording()">🎙️</button>
             <button class="audio-btn" id="btn-enviar" style="background: var(--accent); color: #0b111e; display: none;">➔</button>
         </div>
     </div>
 
+    <div id="screen-settings" class="screen">
+        <header class="app-header">
+            <div class="user-info">
+                <button class="icon-btn" onclick="alternarTela('screen-home')">⬅️</button>
+                <h2>Configurações</h2>
+            </div>
+        </header>
+
+        <div class="config-container">
+            <div class="config-section">
+                <div class="config-section-title">⏱️ Manter mensagens por:</div>
+                <div id="opt-time-30m" class="time-option active" onclick="setMessagesDuration(30, '30m')">✓ 30 Minutos</div>
+                <div id="opt-time-1h" class="time-option" onclick="setMessagesDuration(60, '1h')">1 Hora</div>
+                <div id="opt-time-12h" class="time-option" onclick="setMessagesDuration(720, '12h')">12 Horas</div>
+                <div id="opt-time-24h" class="time-option" onclick="setMessagesDuration(1440, '24h')">24 Horas</div>
+            </div>
+
+            <div class="config-section">
+                <div class="config-section-title">🎧 Alterar Status:</div>
+                <div id="opt-status-online" class="status-option active" onclick="changeUserStatusFromScreen('Na escuta', 'online', 'opt-status-online')">🎧 Na escuta</div>
+                <div id="opt-status-away" class="status-option" onclick="changeUserStatusFromScreen('Só de olho', 'away', 'opt-status-away')">🟡 Só de olho</div>
+                <div id="opt-status-busy" class="status-option" onclick="changeUserStatusFromScreen('Ocupado', 'busy', 'opt-status-busy')">🔴 Ocupado</div>
+            </div>
+
+            <div class="config-section">
+                <div class="config-section-title">⚙️ Sistema:</div>
+                <div class="config-info-item">Nuvem Ativa: Conectado</div>
+                <div class="config-action-danger" onclick="sairApp()" style="margin-top: 8px;">🚪 Sair</div>
+            </div>
+        </div>
+    </div>
+
     <script src="app.js"></script>
 </body>
-                    </html>
-
-            
+            </html>
+                    
